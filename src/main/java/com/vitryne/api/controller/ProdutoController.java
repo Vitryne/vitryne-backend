@@ -3,13 +3,13 @@ package com.vitryne.api.controller;
 import com.vitryne.api.dto.ProdutoResponseDTO;
 import com.vitryne.api.service.ProdutoService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j; // 1. Importação do Lombok
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@Slf4j // 2. Adição da anotação
+@Slf4j
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/produto")

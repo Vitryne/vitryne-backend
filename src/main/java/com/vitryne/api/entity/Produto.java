@@ -2,17 +2,20 @@ package com.vitryne.api.entity;
 
 import com.vitryne.api.exception.EstoqueInsuficienteException;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
-@Setter
 @Entity
 @Table(name = "produto")
 public class Produto {
@@ -21,34 +24,40 @@ public class Produto {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank(message = "O nome do produto é uma informação obrigatória")
     private String nome;
 
     private String descricao;
 
-    private Double preco;
+    @NotNull(message = "O preco do produto é uma informação obrigatória")
+    @Column(precision = 10, scale = 2)
+    private BigDecimal preco;
 
-    @Column(name = "preco_promocional")
-    private Double precoPromocional;
+    @Column(name = "preco_promocional", precision = 10, scale = 2)
+    private BigDecimal precoPromocional;
 
-    private String tipo;
+    @NotBlank(message = "O tipo do produto é uma informação obrigatória")
+    private String tipo;// camiseta/calça/vestido/acessorio/etc.
 
     private String cor;
 
     private Double avaliacao;
 
-    private String status;
+    @NotBlank(message = "O status do produto é uma informação obrigatória")
+    private String status;// ATIVO ou INATIVO
 
     @JdbcTypeCode(SqlTypes.ARRAY)
     @Column(name = "fotos_urls", columnDefinition = "text[]")
     private List<String> fotosUrls;
 
+    @Builder.Default
     @OneToMany(mappedBy = "produto", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Estoque> estoques;
+    private List<Estoque> estoques = new ArrayList<>();
 
     //relacionar produto com uma Loja futuramente
 
 
-    public Double calcularPrecoFinal(){
+    public BigDecimal calcularPrecoFinal(){
         return (precoPromocional != null) ? precoPromocional : preco;
     }
 

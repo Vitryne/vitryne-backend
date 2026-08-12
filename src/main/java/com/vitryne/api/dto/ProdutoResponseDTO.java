@@ -2,6 +2,7 @@ package com.vitryne.api.dto;
 
 import lombok.Builder;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Builder
@@ -9,9 +10,9 @@ public record ProdutoResponseDTO(
         Long id,
         String nome,
         String descricao,
-        Double preco,
-        Double precoPromocional,
-        Double precoFinal,
+        BigDecimal preco,
+        BigDecimal precoPromocional,
+        BigDecimal precoFinal,
         String tipo,
         String cor,
         Double avaliacao,

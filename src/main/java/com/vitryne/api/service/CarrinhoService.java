@@ -27,33 +27,26 @@ public class CarrinhoService {
 
     @Transactional(readOnly = true)
     public CarrinhoResponseDTO buscarPorUsuario(Long usuarioId) {
-        return toResponseDTO(buscarCarrinho(usuarioId));
+        return toResponseDTO(buscarCarrinhoPorUsuarioId(usuarioId));
     }
 
     @Transactional
     public CarrinhoResponseDTO adicionarItem(Long usuarioId, AdicionarItemRequestDTO request) {
         validarQuantidade(request.quantidade());
-
-        Estoque estoque = buscarEstoque(request.estoqueId());
-
+        Estoque estoque = buscarEstoquePorId(usuarioId);
         if (!estoque.estaDisponivel()) {
             throw new EstoqueIndisponivelException(estoque.getTamanho());
         }
-
         Carrinho carrinho = obterOuCriar(usuarioId);
-        ItemCarrinho existente = buscarItemPorEstoque(carrinho, request.estoqueId());
-
+        ItemCarrinho existente = buscarItemPorEstoqueId(carrinho, request.estoqueId());
         Integer quantidadeFinal = (existente != null)
                 ? existente.getQuantidade() + request.quantidade()
                 : request.quantidade();
-
         if (quantidadeFinal > estoque.getQuantidade()) {
             throw new QuantidadeIndisponivelException(
                     estoque.getTamanho(), estoque.getQuantidade(), quantidadeFinal);
         }
-
         Double precoUnitario = estoque.getProduto().calcularPrecoFinal();
-
         if (existente != null) {
             existente.setQuantidade(quantidadeFinal);
             existente.setPrecoUnitario(precoUnitario);
@@ -66,41 +59,34 @@ public class CarrinhoService {
                     .build();
             carrinho.getItens().add(novo);
         }
-
         return persistir(carrinho);
     }
 
     @Transactional
     public CarrinhoResponseDTO atualizarQuantidadeItem(Long usuarioId, Long itemId, Integer quantidade) {
         validarQuantidade(quantidade);
-
-        Carrinho carrinho = buscarCarrinho(usuarioId);
+        Carrinho carrinho = buscarCarrinhoPorUsuarioId(usuarioId);
         ItemCarrinho item = buscarItemPorId(carrinho, itemId);
-        Estoque estoque = buscarEstoque(item.getEstoqueId());
-
+        Estoque estoque = buscarEstoquePorId(item.getEstoqueId());
         if(quantidade > estoque.getQuantidade()){
             throw new QuantidadeIndisponivelException(estoque.getTamanho(), estoque.getQuantidade(), quantidade);
         }
-
         item.setQuantidade(quantidade);
-
         return persistir(carrinho);
     }
 
     @Transactional
     public CarrinhoResponseDTO removerItem(Long usuarioId, Long itemId) {
-        Carrinho carrinho = buscarCarrinho(usuarioId);
+        Carrinho carrinho = buscarCarrinhoPorUsuarioId(usuarioId);
         ItemCarrinho item = buscarItemPorId(carrinho, itemId);
         carrinho.getItens().remove(item);
-
         return persistir(carrinho);
     }
 
     @Transactional
     public CarrinhoResponseDTO limpar(Long usuarioId) {
-        Carrinho carrinho = buscarCarrinho(usuarioId);
+        Carrinho carrinho = buscarCarrinhoPorUsuarioId(usuarioId);
         carrinho.getItens().clear();
-
         return persistir(carrinho);
     }
 
@@ -135,10 +121,6 @@ public class CarrinhoService {
                 ));
     }
 
-    private Carrinho buscarCarrinho(Long usuarioId) {
-        return carrinhoRepository.findByUsuarioId(usuarioId)
-                .orElseThrow(() -> new CarrinhoNaoEncontradoException(usuarioId));
-    }
 
     private ItemCarrinho buscarItemPorId(Carrinho carrinho, Long itemId) {
         return carrinho.getItens().stream()
@@ -147,7 +129,7 @@ public class CarrinhoService {
                 .orElseThrow(() -> new ItemCarrinhoNaoEncontradoException(itemId));
     }
 
-    private ItemCarrinho buscarItemPorEstoque(Carrinho carrinho, Long estoqueId) {
+    private ItemCarrinho buscarItemPorEstoqueId(Carrinho carrinho, Long estoqueId) {
         return carrinho.getItens().stream()
                 .filter(i -> i.getEstoqueId().equals(estoqueId))
                 .findFirst()
@@ -156,28 +138,20 @@ public class CarrinhoService {
 
     private void validarQuantidade(Integer quantidade) {
         if (quantidade == null || quantidade <= 0) {
-            throw new IllegalArgumentException("Quantidade inválida: " + quantidade);
+            throw new QuantidadeInvalidaException(quantidade);
         }
-    }
-
-    private Estoque buscarEstoque(Long estoqueId){
-        return estoqueRepository.findById(estoqueId).orElseThrow(() -> new EstoqueNaoEncontradoException(estoqueId));
     }
 
     private CarrinhoResponseDTO toResponseDTO(Carrinho carrinho) {
         List<ItemCarrinho> itensCarrinho = carrinho.getItens();
-
         List<Long> estoqueIds = itensCarrinho.stream()
                 .map(ItemCarrinho::getEstoqueId)
                 .toList();
-
         Map<Long, Estoque> estoquesPorId = estoqueRepository.findAllById(estoqueIds).stream()
                 .collect(Collectors.toMap(Estoque::getId, e -> e));
-
         List<ItemCarrinhoResponseDTO> itens = itensCarrinho.stream()
                 .map(item -> toItemResponseDTO(item, estoquesPorId.get(item.getEstoqueId())))
                 .toList();
-
         return CarrinhoResponseDTO.builder()
                 .id(carrinho.getId())
                 .usuarioId(carrinho.getUsuarioId())
@@ -194,7 +168,6 @@ public class CarrinhoService {
                 .quantidade(item.getQuantidade())
                 .precoUnitario(item.getPrecoUnitario())
                 .subtotal(calcularSubtotal(item));
-
         if (estoque != null) {
             builder.tamanho(estoque.getTamanho())
                     .produtoId(estoque.getProduto().getId())
@@ -203,7 +176,14 @@ public class CarrinhoService {
                             ? null
                             : estoque.getProduto().getFotosUrls().get(0));
         }
-
         return builder.build();
+    }
+
+    private Estoque buscarEstoquePorId(Long usuarioId) {
+        return estoqueRepository.findById(usuarioId).orElseThrow(() -> new EstoqueNaoEncontradoException(usuarioId));
+    }
+
+    private Carrinho buscarCarrinhoPorUsuarioId(Long usuarioId) {
+        return carrinhoRepository.findByUsuarioId(usuarioId).orElseThrow(() -> new CarrinhoNaoEncontradoException(usuarioId));
     }
 }

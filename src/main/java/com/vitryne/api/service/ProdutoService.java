@@ -33,6 +33,7 @@ public class ProdutoService {
     private ProdutoResponseDTO toResponseDTO(Produto produto){
         List<TamanhoDisponivelDTO> tamanhos = produto.getEstoques().stream()
                 .map(estoque -> new TamanhoDisponivelDTO(
+                        estoque.getId(),
                         estoque.getTamanho(),
                         estoque.getQuantidade(),
                         produto.verificarDisponibilidade(estoque.getTamanho())

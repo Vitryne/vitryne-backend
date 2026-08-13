@@ -4,6 +4,7 @@ import com.vitryne.api.dto.AdicionarItemRequestDTO;
 import com.vitryne.api.dto.AtualizarItemRequestDTO;
 import com.vitryne.api.dto.CarrinhoResponseDTO;
 import com.vitryne.api.service.CarrinhoService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -27,7 +28,7 @@ public class CarrinhoController {
 
     @PostMapping("/{usuarioId}/itens")
     public ResponseEntity<CarrinhoResponseDTO> adicionarItem(@PathVariable Long usuarioId,
-                                                             @RequestBody AdicionarItemRequestDTO request) {
+                                                             @RequestBody @Valid AdicionarItemRequestDTO request) {
         log.info("Recebida requisição para adicionar item ao carrinho do usuário ID: {}", usuarioId);
         log.info("Json request: {}", request);
         CarrinhoResponseDTO response = carrinhoService.adicionarItem(usuarioId, request);
@@ -38,10 +39,10 @@ public class CarrinhoController {
     @PutMapping("/{usuarioId}/itens/{itemId}")
     public ResponseEntity<CarrinhoResponseDTO> atualizarQuantidadeItem(@PathVariable Long usuarioId,
                                                                        @PathVariable Long itemId,
-                                                                       @RequestBody AtualizarItemRequestDTO request) {
+                                                                       @RequestBody @Valid AtualizarItemRequestDTO request) {
         log.info("Recebida requisição para atualizar quantidade do item ID: {} no carrinho do usuário ID: {}", itemId, usuarioId);
         log.info("Json request: {}", request);
-        CarrinhoResponseDTO response = carrinhoService.atualizarQuantidadeItem(usuarioId, itemId, request.quantidade());
+        CarrinhoResponseDTO response = carrinhoService.atualizarQuantidadeItem(usuarioId, itemId, request);
         log.info("Quantidade do item ID: {} atualizada com sucesso no carrinho do usuário ID: {}", itemId, usuarioId);
         return ResponseEntity.ok(response);
     }

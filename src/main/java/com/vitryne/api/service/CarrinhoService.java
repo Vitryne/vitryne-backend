@@ -1,6 +1,7 @@
 package com.vitryne.api.service;
 
 import com.vitryne.api.dto.AdicionarItemRequestDTO;
+import com.vitryne.api.dto.AtualizarItemRequestDTO;
 import com.vitryne.api.dto.CarrinhoResponseDTO;
 import com.vitryne.api.dto.ItemCarrinhoResponseDTO;
 import com.vitryne.api.entity.Carrinho;
@@ -33,7 +34,7 @@ public class CarrinhoService {
     @Transactional
     public CarrinhoResponseDTO adicionarItem(Long usuarioId, AdicionarItemRequestDTO request) {
         validarQuantidade(request.quantidade());
-        Estoque estoque = buscarEstoquePorId(usuarioId);
+        Estoque estoque = buscarEstoquePorId(request.estoqueId());
         if (!estoque.estaDisponivel()) {
             throw new EstoqueIndisponivelException(estoque.getTamanho());
         }
@@ -63,7 +64,8 @@ public class CarrinhoService {
     }
 
     @Transactional
-    public CarrinhoResponseDTO atualizarQuantidadeItem(Long usuarioId, Long itemId, Integer quantidade) {
+    public CarrinhoResponseDTO atualizarQuantidadeItem(Long usuarioId, Long itemId, AtualizarItemRequestDTO request) {
+        Integer quantidade = request.quantidade();
         validarQuantidade(quantidade);
         Carrinho carrinho = buscarCarrinhoPorUsuarioId(usuarioId);
         ItemCarrinho item = buscarItemPorId(carrinho, itemId);

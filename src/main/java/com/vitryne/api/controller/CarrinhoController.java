@@ -20,19 +20,14 @@ public class CarrinhoController {
 
     @GetMapping("/{usuarioId}")
     public ResponseEntity<CarrinhoResponseDTO> buscarPorUsuario(@PathVariable Long usuarioId) {
-        log.info("Recebida requisição para buscar carrinho do usuário ID: {}", usuarioId);
         CarrinhoResponseDTO response = carrinhoService.buscarPorUsuario(usuarioId);
-        log.info("Carrinho do usuário ID: {} retornado com sucesso", usuarioId);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{usuarioId}/itens")
     public ResponseEntity<CarrinhoResponseDTO> adicionarItem(@PathVariable Long usuarioId,
                                                              @RequestBody @Valid AdicionarItemRequestDTO request) {
-        log.info("Recebida requisição para adicionar item ao carrinho do usuário ID: {}", usuarioId);
-        log.info("Json request: {}", request);
         CarrinhoResponseDTO response = carrinhoService.adicionarItem(usuarioId, request);
-        log.info("Item adicionado com sucesso ao carrinho do usuário ID: {}", usuarioId);
         return ResponseEntity.ok(response);
     }
 
@@ -40,27 +35,20 @@ public class CarrinhoController {
     public ResponseEntity<CarrinhoResponseDTO> atualizarQuantidadeItem(@PathVariable Long usuarioId,
                                                                        @PathVariable Long itemId,
                                                                        @RequestBody @Valid AtualizarItemRequestDTO request) {
-        log.info("Recebida requisição para atualizar quantidade do item ID: {} no carrinho do usuário ID: {}", itemId, usuarioId);
-        log.info("Json request: {}", request);
         CarrinhoResponseDTO response = carrinhoService.atualizarQuantidadeItem(usuarioId, itemId, request);
-        log.info("Quantidade do item ID: {} atualizada com sucesso no carrinho do usuário ID: {}", itemId, usuarioId);
         return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/{usuarioId}/itens/{itemId}")
     public ResponseEntity<CarrinhoResponseDTO> removerItem(@PathVariable Long usuarioId,
                                                            @PathVariable Long itemId) {
-        log.info("Recebida requisição para remover item ID: {} do carrinho do usuário ID: {}", itemId, usuarioId);
         CarrinhoResponseDTO response = carrinhoService.removerItem(usuarioId, itemId);
-        log.info("Item ID: {} removido com sucesso do carrinho do usuário ID: {}", itemId, usuarioId);
         return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/{usuarioId}/itens")
     public ResponseEntity<CarrinhoResponseDTO> limpar(@PathVariable Long usuarioId) {
-        log.info("Recebida requisição para limpar o carrinho do usuário ID: {}", usuarioId);
         CarrinhoResponseDTO response = carrinhoService.limpar(usuarioId);
-        log.info("Carrinho do usuário ID: {} limpo com sucesso", usuarioId);
         return ResponseEntity.ok(response);
     }
 }

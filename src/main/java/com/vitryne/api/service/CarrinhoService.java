@@ -11,6 +11,7 @@ import com.vitryne.api.exception.*;
 import com.vitryne.api.repository.CarrinhoRepository;
 import com.vitryne.api.repository.EstoqueRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class CarrinhoService {
@@ -36,6 +38,7 @@ public class CarrinhoService {
         validarQuantidade(request.quantidade());
         Estoque estoque = buscarEstoquePorId(request.estoqueId());
         if (!estoque.estaDisponivel()) {
+            log.warn("Estoque indisponível. tamanho do estoque: [{}]", estoque.getQuantidade());
             throw new EstoqueIndisponivelException(estoque.getTamanho());
         }
         Carrinho carrinho = obterOuCriar(usuarioId);
@@ -44,6 +47,7 @@ public class CarrinhoService {
                 ? existente.getQuantidade() + request.quantidade()
                 : request.quantidade();
         if (quantidadeFinal > estoque.getQuantidade()) {
+            logErroEstoqueDisponivel(estoque, quantidadeFinal);
             throw new QuantidadeIndisponivelException(
                     estoque.getTamanho(), estoque.getQuantidade(), quantidadeFinal);
         }
@@ -59,6 +63,7 @@ public class CarrinhoService {
                     .precoUnitario(precoUnitario)
                     .build();
             carrinho.getItens().add(novo);
+            log.info("Item adicionado no carrinho com sucesso.");
         }
         return persistir(carrinho);
     }
@@ -71,9 +76,11 @@ public class CarrinhoService {
         ItemCarrinho item = buscarItemPorId(carrinho, itemId);
         Estoque estoque = buscarEstoquePorId(item.getEstoqueId());
         if(quantidade > estoque.getQuantidade()){
+            logErroEstoqueDisponivel(estoque, quantidade);
             throw new QuantidadeIndisponivelException(estoque.getTamanho(), estoque.getQuantidade(), quantidade);
         }
         item.setQuantidade(quantidade);
+        log.info("Quantidade atualizada com sucesso [{}]", quantidade);
         return persistir(carrinho);
     }
 
@@ -82,6 +89,7 @@ public class CarrinhoService {
         Carrinho carrinho = buscarCarrinhoPorUsuarioId(usuarioId);
         ItemCarrinho item = buscarItemPorId(carrinho, itemId);
         carrinho.getItens().remove(item);
+        log.info("Item removido com sucesso: [{}]", item.getId());
         return persistir(carrinho);
     }
 
@@ -89,14 +97,26 @@ public class CarrinhoService {
     public CarrinhoResponseDTO limpar(Long usuarioId) {
         Carrinho carrinho = buscarCarrinhoPorUsuarioId(usuarioId);
         carrinho.getItens().clear();
+        log.info("Carrinho limpo com sucesso: [{}]", carrinho.getId());
         return persistir(carrinho);
     }
 
 
     private CarrinhoResponseDTO persistir(Carrinho carrinho) {
-        carrinho.setPrevisaoValorTotal(calcularTotal(carrinho));
-        carrinho.setAtualizadoEm(LocalDateTime.now());
-        return toResponseDTO(carrinhoRepository.save(carrinho));
+        log.info("Iniciando persistência do carrinho: [{}]", carrinho.getId());
+        try{
+            carrinho.setPrevisaoValorTotal(calcularTotal(carrinho));
+            carrinho.setAtualizadoEm(LocalDateTime.now());
+            Carrinho carrinhoSalvo = carrinhoRepository.save(carrinho);
+            log.info("Carrinho persistido com sucesso: [{}]", carrinhoSalvo.getId());
+            return toResponseDTO(carrinhoSalvo);
+        } catch (Exception e) {
+            log.error("Erro ao persistir carrinho: [{}]",
+                carrinho.getId(), e
+            );
+            throw e;
+        }
+
     }
 
     private Double calcularTotal(Carrinho carrinho) {
@@ -113,35 +133,55 @@ public class CarrinhoService {
     }
 
     private Carrinho obterOuCriar(Long usuarioId) {
+        log.info("Obtendo carrinho do usuário: [{}]", usuarioId);
         return carrinhoRepository.findByUsuarioId(usuarioId)
-                .orElseGet(() -> carrinhoRepository.save(
-                        Carrinho.builder()
-                                .usuarioId(usuarioId)
-                                .previsaoValorTotal(0.0)
-                                .atualizadoEm(LocalDateTime.now())
-                                .build()
-                ));
+                .orElseGet(() -> {
+                    log.info("Carrinho inexistente para o usuário: [{}], criando um novo.", usuarioId);
+                    Carrinho carrinho = Carrinho.builder()
+                            .usuarioId(usuarioId)
+                            .previsaoValorTotal(0.0)
+                            .atualizadoEm(LocalDateTime.now())
+                            .build();
+                    Carrinho carrinhoSalvo = carrinhoRepository.save(carrinho);
+                    log.info("Carrinho criado. Usuário: [{}], Carrinho: [{}]",
+                            usuarioId, carrinho.getId()
+                    );
+                    return carrinhoSalvo;
+                });
     }
 
 
     private ItemCarrinho buscarItemPorId(Carrinho carrinho, Long itemId) {
-        return carrinho.getItens().stream()
+        log.info("Buscando item por id: [{}]", itemId);
+        ItemCarrinho itemCarrinho = carrinho.getItens().stream()
                 .filter(i -> i.getId() != null && i.getId().equals(itemId))
                 .findFirst()
-                .orElseThrow(() -> new ItemCarrinhoNaoEncontradoException(itemId));
+                .orElseThrow(() -> {
+                    log.warn("Erro ao buscar item por id: [{}], Carrinho: [{}]", itemId, carrinho.getId());
+                    return new ItemCarrinhoNaoEncontradoException(itemId);
+                });
+        return itemCarrinho;
     }
 
     private ItemCarrinho buscarItemPorEstoqueId(Carrinho carrinho, Long estoqueId) {
-        return carrinho.getItens().stream()
+        log.info("Buscando item no carrinho pelo estoqueId: [{}]", estoqueId);
+        ItemCarrinho itemCarrinho = carrinho.getItens().stream()
                 .filter(i -> i.getEstoqueId().equals(estoqueId))
                 .findFirst()
                 .orElse(null);
+        if(itemCarrinho == null){
+            log.warn("Item não econtrado no carrinho para o estoqueId: [{}]", estoqueId);
+        }
+        return itemCarrinho;
     }
 
     private void validarQuantidade(Integer quantidade) {
+        log.info("Validando quantidade de produtos: [{}]", quantidade);
         if (quantidade == null || quantidade <= 0) {
+            log.warn("Quantidade de produtos inválida: [{}]", quantidade);
             throw new QuantidadeInvalidaException(quantidade);
         }
+        log.info("Quantidade de produtos correta: [{}]", quantidade);
     }
 
     private CarrinhoResponseDTO toResponseDTO(Carrinho carrinho) {
@@ -181,11 +221,30 @@ public class CarrinhoService {
         return builder.build();
     }
 
-    private Estoque buscarEstoquePorId(Long usuarioId) {
-        return estoqueRepository.findById(usuarioId).orElseThrow(() -> new EstoqueNaoEncontradoException(usuarioId));
+    private Estoque buscarEstoquePorId(Long estoqueId) {
+        log.info("Buscando estoque por id: [{}]", estoqueId);
+        Estoque estoque = estoqueRepository.findById(estoqueId).orElseThrow(() -> {
+            log.warn("Erro ao buscar estoque por id: [{}]", estoqueId);
+            return new EstoqueNaoEncontradoException(estoqueId);
+        });
+        log.info("Estoque econtrado com sucesso. id: [{}]", estoqueId);
+        return estoque;
     }
 
     private Carrinho buscarCarrinhoPorUsuarioId(Long usuarioId) {
-        return carrinhoRepository.findByUsuarioId(usuarioId).orElseThrow(() -> new CarrinhoNaoEncontradoException(usuarioId));
+        log.info("Buscando carrinho por usuário: [{}]", usuarioId);
+        Carrinho carrinho = carrinhoRepository.findByUsuarioId(usuarioId)
+                .orElseThrow(() -> {
+                    log.warn("Erro ao buscar carrinho por usuário: [{}]", usuarioId);
+                    return new CarrinhoNaoEncontradoException(usuarioId);
+                });
+        log.info("Carrinho econtado com sucesso. Usuário: [{}], Carrinho: [{}]", usuarioId, carrinho.getId());
+        return carrinho;
+    }
+
+    private static void logErroEstoqueDisponivel(Estoque estoque, Integer quantidadeFinal) {
+        log.warn("Quantidade solicitada [{}] excede o estoque disponível [{}] para o tamanho [{}]",
+                estoque.getTamanho(), estoque.getQuantidade(), quantidadeFinal
+        );
     }
 }
